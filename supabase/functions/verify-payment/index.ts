@@ -1,0 +1,163 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { imageBase64 } = await req.json();
+    
+    if (!imageBase64) {
+      return new Response(
+        JSON.stringify({ error: 'Missing image data' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({ error: 'AI service not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Starting Vodafone Cash image verification...');
+
+    // Use Lovable AI (Gemini) to analyze the payment screenshot
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI assistant that analyzes payment screenshots to verify Vodafone Cash transfers.
+Your task is to:
+1. Determine if the image is a Vodafone Cash payment screenshot
+2. Extract any visible text (OCR) including transaction IDs, amounts, phone numbers
+3. Provide a confidence score (0.0 to 1.0) for whether this is a valid Vodafone Cash transfer
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "is_vodafone_cash": true/false,
+  "confidence": 0.0-1.0,
+  "ocr_text": "extracted text from image",
+  "extracted_fields": {
+    "transaction_id": "string or null",
+    "amount": "string or null",
+    "from_phone": "string or null",
+    "to_phone": "string or null"
+  },
+  "warnings": ["array of any issues detected"]
+}`
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Analyze this payment screenshot and determine if it's a valid Vodafone Cash transfer. Extract all visible text and provide your analysis."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`
+                }
+              }
+            ]
+          }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI Gateway error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded, please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required, please add credits.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'AI analysis failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const aiResponse = await response.json();
+    console.log('AI Response received:', JSON.stringify(aiResponse));
+
+    const content = aiResponse.choices?.[0]?.message?.content;
+    if (!content) {
+      console.error('No content in AI response');
+      return new Response(
+        JSON.stringify({ 
+          is_vodafone_cash: false, 
+          confidence: 0, 
+          ocr_text: '', 
+          extracted_fields: {},
+          warnings: ['Failed to analyze image']
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse the JSON response from AI
+    let result;
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      let jsonStr = content;
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      }
+      result = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError, content);
+      result = {
+        is_vodafone_cash: false,
+        confidence: 0.3,
+        ocr_text: content,
+        extracted_fields: {},
+        warnings: ['Could not parse structured response']
+      };
+    }
+
+    console.log('Verification result:', JSON.stringify(result));
+
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error in verify-payment:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
