@@ -14,6 +14,112 @@ export type Database = {
   }
   public: {
     Tables: {
+      anomalies: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          id: string
+          reviewed: boolean | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          score: number
+          type: string
+          user_id: string | null
+          user_id_hashed: string
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          reviewed?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          score?: number
+          type: string
+          user_id?: string | null
+          user_id_hashed: string
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          reviewed?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          score?: number
+          type?: string
+          user_id?: string | null
+          user_id_hashed?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anomalies_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anomalies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arrivals: {
+        Row: {
+          actor_id: string
+          arrival_time: string | null
+          arrived: boolean
+          created_at: string | null
+          driver_id: string
+          id: string
+          reservation_id: string
+        }
+        Insert: {
+          actor_id: string
+          arrival_time?: string | null
+          arrived?: boolean
+          created_at?: string | null
+          driver_id: string
+          id?: string
+          reservation_id: string
+        }
+        Update: {
+          actor_id?: string
+          arrival_time?: string | null
+          arrived?: boolean
+          created_at?: string | null
+          driver_id?: string
+          id?: string
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arrivals_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arrivals_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arrivals_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -130,6 +236,7 @@ export type Database = {
           id: string
           image_url: string
           ocr_text: string | null
+          payment_status: string | null
           reservation_id: string
         }
         Insert: {
@@ -142,6 +249,7 @@ export type Database = {
           id?: string
           image_url: string
           ocr_text?: string | null
+          payment_status?: string | null
           reservation_id: string
         }
         Update: {
@@ -154,6 +262,7 @@ export type Database = {
           id?: string
           image_url?: string
           ocr_text?: string | null
+          payment_status?: string | null
           reservation_id?: string
         }
         Relationships: [
@@ -206,24 +315,30 @@ export type Database = {
           created_at: string | null
           driver_id: string
           id: string
+          passenger_hash: string | null
           passenger_id: string
           rating: number | null
+          trip_window_id: string | null
         }
         Insert: {
           anonymous?: boolean | null
           created_at?: string | null
           driver_id: string
           id?: string
+          passenger_hash?: string | null
           passenger_id: string
           rating?: number | null
+          trip_window_id?: string | null
         }
         Update: {
           anonymous?: boolean | null
           created_at?: string | null
           driver_id?: string
           id?: string
+          passenger_hash?: string | null
           passenger_id?: string
           rating?: number | null
+          trip_window_id?: string | null
         }
         Relationships: [
           {
@@ -249,8 +364,11 @@ export type Database = {
           expires_at: string | null
           id: string
           low_confidence: boolean | null
+          multi_seat: boolean | null
           order_number: number
+          paid_unallocated: boolean | null
           passenger_id: string
+          payment_tx_id: string | null
           status: Database["public"]["Enums"]["reservation_status"] | null
         }
         Insert: {
@@ -259,8 +377,11 @@ export type Database = {
           expires_at?: string | null
           id?: string
           low_confidence?: boolean | null
+          multi_seat?: boolean | null
           order_number: number
+          paid_unallocated?: boolean | null
           passenger_id: string
+          payment_tx_id?: string | null
           status?: Database["public"]["Enums"]["reservation_status"] | null
         }
         Update: {
@@ -269,8 +390,11 @@ export type Database = {
           expires_at?: string | null
           id?: string
           low_confidence?: boolean | null
+          multi_seat?: boolean | null
           order_number?: number
+          paid_unallocated?: boolean | null
           passenger_id?: string
+          payment_tx_id?: string | null
           status?: Database["public"]["Enums"]["reservation_status"] | null
         }
         Relationships: [
@@ -292,10 +416,58 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      driver_rating_aggregates: {
+        Row: {
+          avg_rating: number | null
+          day: string | null
+          driver_id: string | null
+          ratings_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      admin_set_role: {
+        Args: {
+          p_new_role: Database["public"]["Enums"]["user_role"]
+          p_target_user_id: string
+        }
+        Returns: boolean
+      }
+      create_anonymous_rating: {
+        Args: { p_anonymous?: boolean; p_driver_id: string; p_rating: number }
+        Returns: string
+      }
+      detect_anomalies: { Args: never; Returns: number }
+      driver_queue_for_car: {
+        Args: { p_car_id: string }
+        Returns: {
+          arrival_time: string
+          arrived: boolean
+          order_number: number
+          passenger_phone: string
+          reservation_id: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }[]
+      }
+      expire_temporary_holds: { Args: never; Returns: number }
       get_car_seat_count: { Args: { car_uuid: string }; Returns: number }
+      get_driver_ratings: {
+        Args: { p_driver_id: string }
+        Returns: {
+          avg_rating: number
+          day: string
+          ratings_count: number
+        }[]
+      }
       get_next_order_number: { Args: { car_uuid: string }; Returns: number }
       get_user_role: {
         Args: { user_id: string }
@@ -304,9 +476,40 @@ export type Database = {
       has_active_reservation: { Args: { user_id: string }; Returns: boolean }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_driver: { Args: { user_id: string }; Returns: boolean }
+      log_action: {
+        Args: { p_action: string; p_actor_id: string; p_payload?: Json }
+        Returns: string
+      }
+      mark_passenger_arrival: {
+        Args: { p_arrived: boolean; p_reservation_id: string }
+        Returns: boolean
+      }
+      passenger_queue_for_car: {
+        Args: { p_car_id: string }
+        Returns: {
+          order_number: number
+          passenger_name: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }[]
+      }
+      refresh_rating_aggregates: { Args: never; Returns: undefined }
+      reserve_seat: {
+        Args: { p_car_id: string; p_passenger_id: string }
+        Returns: {
+          message: string
+          order_number: number
+          reservation_id: string
+          success: boolean
+        }[]
+      }
     }
     Enums: {
       driver_status: "pending" | "approved" | "blocked"
+      payment_status:
+        | "paid_unuploaded"
+        | "pending_verification"
+        | "verified"
+        | "rejected"
       reservation_status:
         | "temporary"
         | "confirmed"
@@ -442,6 +645,12 @@ export const Constants = {
   public: {
     Enums: {
       driver_status: ["pending", "approved", "blocked"],
+      payment_status: [
+        "paid_unuploaded",
+        "pending_verification",
+        "verified",
+        "rejected",
+      ],
       reservation_status: [
         "temporary",
         "confirmed",
