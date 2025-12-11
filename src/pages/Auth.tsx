@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { UserRole } from '@/lib/types';
-import { Car, Users, Shield } from 'lucide-react';
+import { Car, Users } from 'lucide-react';
 import { z } from 'zod';
 
 const signUpSchema = z.object({
@@ -79,10 +79,18 @@ export default function Auth() {
           variant: 'destructive',
         });
       } else {
-        toast({
-          title: 'تم التسجيل بنجاح',
-          description: 'مرحباً بك في السواّح!',
-        });
+        // Show driver-specific onboarding message
+        if (selectedRole === 'driver') {
+          toast({
+            title: 'شكراً!',
+            description: 'طلب تسجيلك اتبعت للسواّح — في انتظار تأكيد دخولك. هنبعتلك رسالة أول ما يتأكد.',
+          });
+        } else {
+          toast({
+            title: 'تم التسجيل بنجاح',
+            description: 'مرحباً بك في السواّح!',
+          });
+        }
         navigate('/dashboard');
       }
     } catch (error) {
@@ -134,10 +142,10 @@ export default function Auth() {
     }
   };
 
+  // SECURITY: Only passenger and driver roles available for signup - admin assigned by existing admin only
   const roleOptions = [
     { value: 'passenger' as UserRole, label: 'أنا راكب', icon: Users, description: 'احجز مقعد في رحلة' },
     { value: 'driver' as UserRole, label: 'أنا سوّاق', icon: Car, description: 'سجّل كسائق' },
-    { value: 'admin' as UserRole, label: 'نسخة السوّاح', icon: Shield, description: 'إدارة النظام' },
   ];
 
   return (

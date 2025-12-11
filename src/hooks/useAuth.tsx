@@ -89,6 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string, phone: string, role: UserRole) => {
     try {
+      // SECURITY: Prevent admin self-assignment - only allow passenger or driver
+      const safeRole: 'passenger' | 'driver' = role === 'driver' ? 'driver' : 'passenger';
+      
       const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
@@ -96,21 +99,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           emailRedirectTo: redirectUrl,
-          data: { name, phone, role }
+          data: { name, phone, role: safeRole }
         }
       });
 
       if (error) return { error };
 
       if (data.user) {
-        // Create profile
+        // Create profile with safe role (never admin)
         const { error: profileError } = await supabase
           .from('profiles')
           .insert([{
             id: data.user.id,
             name,
             phone,
-            role: role as string,
+            role: safeRole,
           }]);
 
         if (profileError) {
@@ -119,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // If driver, create driver record
-        if (role === 'driver') {
+        if (safeRole === 'driver') {
           const { error: driverError } = await supabase
             .from('drivers')
             .insert({
