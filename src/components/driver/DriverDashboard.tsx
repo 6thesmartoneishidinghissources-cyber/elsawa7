@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Driver, Car } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { QueueView } from '@/components/passenger/QueueView';
+import { DriverQueue } from './DriverQueue';
 import { Loader2, Car as CarIcon, AlertTriangle, CheckCircle, Clock, Star } from 'lucide-react';
 
 export function DriverDashboard() {
@@ -100,9 +100,9 @@ export function DriverDashboard() {
             <div className="p-4 rounded-lg bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-5 w-5" />
-                <span className="font-semibold">حسابك في انتظار موافقة الإدارة</span>
+                <span className="font-semibold">شكراً! طلب تسجيلك اتبعت للسواّح</span>
               </div>
-              <p className="text-sm">سيتم مراجعة بياناتك وتفعيل حسابك قريباً</p>
+              <p className="text-sm">في انتظار تأكيد دخولك. هنبعتلك رسالة أول ما يتأكد.</p>
             </div>
           )}
 
@@ -150,7 +150,7 @@ export function DriverDashboard() {
                   </CardDescription>
                 </CardHeader>
               </Card>
-              <QueueView carId={car.id} role="driver" />
+              <DriverQueue carId={car.id} />
             </div>
           ))}
         </div>

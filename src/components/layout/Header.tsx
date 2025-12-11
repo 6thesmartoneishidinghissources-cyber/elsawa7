@@ -1,7 +1,8 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Car } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LogOut, User, Car, Info } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 
 export function Header() {
   const { profile, signOut } = useAuth();
@@ -33,21 +34,32 @@ export function Header() {
           <span className="text-xl font-bold text-foreground">ElSawa7</span>
         </div>
         
-        {profile && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="text-foreground">{profile.name}</span>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {getRoleBadge()}
-              </span>
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 ml-2" />
-              خروج
+        <div className="flex items-center gap-4">
+          <PWAInstallPrompt />
+          
+          <Link to="/about">
+            <Button variant="ghost" size="sm">
+              <Info className="h-4 w-4 ml-1" />
+              <span className="hidden sm:inline">عن التطبيق</span>
             </Button>
-          </div>
-        )}
+          </Link>
+
+          {profile && (
+            <>
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-foreground hidden sm:inline">{profile.name}</span>
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {getRoleBadge()}
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 ml-2" />
+                <span className="hidden sm:inline">خروج</span>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

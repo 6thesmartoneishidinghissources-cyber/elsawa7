@@ -1,1 +1,16 @@
 project_id = "viwrfkjivboxkoupuzur"
+
+[functions.verify-payment]
+verify_jwt = true
+
+[functions.admin-set-role]
+verify_jwt = true
+
+[functions.expire-holds]
+verify_jwt = false
+
+[functions.anomaly-detector]
+verify_jwt = false
+
+[functions.mock-ml-verify]
+verify_jwt = false

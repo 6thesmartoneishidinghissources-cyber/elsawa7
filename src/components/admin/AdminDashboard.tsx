@@ -1,16 +1,16 @@
-import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PendingPayments } from './PendingPayments';
 import { DriversManagement } from './DriversManagement';
 import { CarsManagement } from './CarsManagement';
 import { AllReservations } from './AllReservations';
-import { CreditCard, Users, Car, Ticket } from 'lucide-react';
+import { QReports } from './QReports';
+import { CreditCard, Users, Car, Ticket, AlertTriangle } from 'lucide-react';
 
 export function AdminDashboard() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="payments" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="payments" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">الحوالات</span>
@@ -26,6 +26,10 @@ export function AdminDashboard() {
           <TabsTrigger value="cars" className="flex items-center gap-2">
             <Car className="h-4 w-4" />
             <span className="hidden sm:inline">السيارات</span>
+          </TabsTrigger>
+          <TabsTrigger value="qreports" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="hidden sm:inline">Q Reports</span>
           </TabsTrigger>
         </TabsList>
 
@@ -43,6 +47,10 @@ export function AdminDashboard() {
 
         <TabsContent value="cars">
           <CarsManagement />
+        </TabsContent>
+
+        <TabsContent value="qreports">
+          <QReports />
         </TabsContent>
       </Tabs>
     </div>
