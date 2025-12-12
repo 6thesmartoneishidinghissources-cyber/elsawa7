@@ -1,4 +1,4 @@
-export type UserRole = 'passenger' | 'driver' | 'admin';
+export type UserRole = 'passenger' | 'driver' | 'admin' | 'owner';
 export type DriverStatus = 'pending' | 'approved' | 'blocked';
 export type ReservationStatus = 'temporary' | 'confirmed' | 'cancelled' | 'rejected' | 'completed';
 
@@ -9,6 +9,14 @@ export interface Profile {
   role: UserRole;
   phone_verified: boolean;
   created_at: string;
+}
+
+export interface UserRoleRecord {
+  id: string;
+  user_id: string;
+  role: 'passenger' | 'driver' | 'owner' | 'admin';
+  assigned_by: string | null;
+  assigned_at: string;
 }
 
 export interface Driver {
@@ -25,6 +33,7 @@ export interface Driver {
 export interface Car {
   id: string;
   driver_id: string | null;
+  owner_id?: string | null;
   title: string;
   capacity: number;
   route: string | null;
@@ -40,6 +49,8 @@ export interface Reservation {
   order_number: number;
   status: ReservationStatus;
   low_confidence: boolean;
+  multi_seat?: boolean;
+  paid_unallocated?: boolean;
   created_at: string;
   expires_at: string | null;
   profiles?: Profile;
@@ -56,6 +67,7 @@ export interface Payment {
   admin_confirmed: boolean | null;
   admin_id: string | null;
   admin_note: string | null;
+  payment_status?: string;
   created_at: string;
   reservations?: Reservation;
 }
@@ -66,7 +78,29 @@ export interface Rating {
   passenger_id: string;
   rating: number;
   anonymous: boolean;
+  passenger_hash?: string | null;
   created_at: string;
+}
+
+export interface VoteForExtraCar {
+  id: string;
+  passenger_id: string;
+  route: string;
+  travel_date: string;
+  created_at: string;
+  consumed: boolean;
+}
+
+export interface TempRegistration {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  name: string | null;
+  requested_role: string;
+  created_at: string;
+  expires_at: string;
+  attempts: number;
+  consumed: boolean;
 }
 
 export interface VerificationResult {
@@ -80,4 +114,10 @@ export interface VerificationResult {
     to_phone?: string | null;
   };
   warnings: string[];
+}
+
+export interface VoteSummary {
+  votes_count: number;
+  remaining_to_trigger: number;
+  total_needed: number;
 }

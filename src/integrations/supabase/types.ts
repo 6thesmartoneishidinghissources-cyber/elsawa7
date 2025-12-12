@@ -158,6 +158,7 @@ export type Database = {
           created_at: string | null
           driver_id: string | null
           id: string
+          owner_id: string | null
           route: string | null
           title: string
         }
@@ -166,6 +167,7 @@ export type Database = {
           created_at?: string | null
           driver_id?: string | null
           id?: string
+          owner_id?: string | null
           route?: string | null
           title: string
         }
@@ -174,6 +176,7 @@ export type Database = {
           created_at?: string | null
           driver_id?: string | null
           id?: string
+          owner_id?: string | null
           route?: string | null
           title?: string
         }
@@ -183,6 +186,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cars_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -414,6 +424,119 @@ export type Database = {
           },
         ]
       }
+      temp_registrations: {
+        Row: {
+          attempts: number | null
+          consumed: boolean | null
+          created_at: string | null
+          device_fingerprint: string | null
+          email: string | null
+          error_reason: string | null
+          expires_at: string | null
+          id: string
+          ip_address: string | null
+          name: string | null
+          phone: string | null
+          requested_role: string | null
+          source: string | null
+          verification_code_email: string | null
+          verification_code_sms: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          consumed?: boolean | null
+          created_at?: string | null
+          device_fingerprint?: string | null
+          email?: string | null
+          error_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          ip_address?: string | null
+          name?: string | null
+          phone?: string | null
+          requested_role?: string | null
+          source?: string | null
+          verification_code_email?: string | null
+          verification_code_sms?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          consumed?: boolean | null
+          created_at?: string | null
+          device_fingerprint?: string | null
+          email?: string | null
+          error_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          ip_address?: string | null
+          name?: string | null
+          phone?: string | null
+          requested_role?: string | null
+          source?: string | null
+          verification_code_email?: string | null
+          verification_code_sms?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      votes_for_extra_cars: {
+        Row: {
+          consumed: boolean | null
+          created_at: string | null
+          id: string
+          passenger_id: string
+          route: string
+          travel_date: string
+        }
+        Insert: {
+          consumed?: boolean | null
+          created_at?: string | null
+          id?: string
+          passenger_id: string
+          route: string
+          travel_date: string
+        }
+        Update: {
+          consumed?: boolean | null
+          created_at?: string | null
+          id?: string
+          passenger_id?: string
+          route?: string
+          travel_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_for_extra_cars_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       driver_rating_aggregates: {
@@ -442,6 +565,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      admin_set_role_v2: {
+        Args: {
+          p_new_role: Database["public"]["Enums"]["app_role"]
+          p_target_user_id: string
+        }
+        Returns: boolean
+      }
+      cleanup_expired_votes: { Args: never; Returns: number }
+      cleanup_temp_registrations: { Args: never; Returns: number }
       create_anonymous_rating: {
         Args: { p_anonymous?: boolean; p_driver_id: string; p_rating: number }
         Returns: string
@@ -473,9 +605,29 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_user_role_v2: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_vote_summary: {
+        Args: { p_route: string; p_travel_date: string }
+        Returns: {
+          remaining_to_trigger: number
+          total_needed: number
+          votes_count: number
+        }[]
+      }
       has_active_reservation: { Args: { user_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_driver: { Args: { user_id: string }; Returns: boolean }
+      is_owner: { Args: { user_id: string }; Returns: boolean }
       log_action: {
         Args: { p_action: string; p_actor_id: string; p_payload?: Json }
         Returns: string
@@ -483,6 +635,10 @@ export type Database = {
       mark_passenger_arrival: {
         Args: { p_arrived: boolean; p_reservation_id: string }
         Returns: boolean
+      }
+      owner_accept_extra_car: {
+        Args: { p_car_title: string; p_route: string; p_travel_date: string }
+        Returns: string
       }
       passenger_queue_for_car: {
         Args: { p_car_id: string }
@@ -502,8 +658,16 @@ export type Database = {
           success: boolean
         }[]
       }
+      vote_for_extra_car: {
+        Args: { p_route: string; p_travel_date: string }
+        Returns: {
+          remaining_to_trigger: number
+          votes_count: number
+        }[]
+      }
     }
     Enums: {
+      app_role: "passenger" | "driver" | "owner" | "admin"
       driver_status: "pending" | "approved" | "blocked"
       payment_status:
         | "paid_unuploaded"
@@ -644,6 +808,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["passenger", "driver", "owner", "admin"],
       driver_status: ["pending", "approved", "blocked"],
       payment_status: [
         "paid_unuploaded",
