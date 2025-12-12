@@ -14,3 +14,24 @@ verify_jwt = false
 
 [functions.mock-ml-verify]
 verify_jwt = false
+
+[functions.start-register]
+verify_jwt = false
+
+[functions.complete-register]
+verify_jwt = false
+
+[functions.cleanup-cron]
+verify_jwt = false
+
+[functions.get-driver-doc]
+verify_jwt = true
+
+[functions.upload-driver-doc]
+verify_jwt = true
+
+[functions.confirm-upload]
+verify_jwt = true
+
+[functions.get-payment-image]
+verify_jwt = true
