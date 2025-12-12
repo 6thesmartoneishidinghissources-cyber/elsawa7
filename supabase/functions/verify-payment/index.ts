@@ -6,12 +6,99 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Rate limit configuration
+const RATE_LIMIT_PER_USER = 10; // requests per minute
+const RATE_LIMIT_PER_IP = 30; // requests per minute
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // SECURITY: Require JWT authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Unauthorized: Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Initialize Supabase client with service role for rate limiting
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify JWT and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Unauthorized: Invalid JWT token', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = user.id;
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+
+    console.log(`verify-payment request from user: ${userId}, IP: ${clientIp}`);
+
+    // SECURITY: Check per-user rate limit
+    const { data: userRateOk } = await supabase.rpc('check_rate_limit', {
+      p_subject: userId,
+      p_endpoint: 'verify-payment',
+      p_limit: RATE_LIMIT_PER_USER,
+      p_window_seconds: 60
+    });
+
+    if (!userRateOk) {
+      console.log(`Rate limit exceeded for user: ${userId}`);
+      
+      // Log rate limit violation
+      await supabase.rpc('log_action', {
+        p_actor_id: userId,
+        p_action: 'verify_payment_rate_limited',
+        p_payload: { ip: clientIp, type: 'user' }
+      });
+
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SECURITY: Check per-IP rate limit
+    const { data: ipRateOk } = await supabase.rpc('check_rate_limit', {
+      p_subject: `ip:${clientIp}`,
+      p_endpoint: 'verify-payment',
+      p_limit: RATE_LIMIT_PER_IP,
+      p_window_seconds: 60
+    });
+
+    if (!ipRateOk) {
+      console.log(`IP rate limit exceeded: ${clientIp}`);
+      
+      await supabase.rpc('log_action', {
+        p_actor_id: userId,
+        p_action: 'verify_payment_rate_limited',
+        p_payload: { ip: clientIp, type: 'ip' }
+      });
+
+      return new Response(
+        JSON.stringify({ error: 'Too many requests from this IP. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse request body
     const { imageBase64 } = await req.json();
     
     if (!imageBase64) {
@@ -31,6 +118,13 @@ serve(async (req) => {
     }
 
     console.log('Starting Vodafone Cash image verification...');
+
+    // Log verification attempt
+    await supabase.rpc('log_action', {
+      p_actor_id: userId,
+      p_action: 'verify_payment_attempt',
+      p_payload: { ip: clientIp }
+    });
 
     // Use Lovable AI (Gemini) to analyze the payment screenshot
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -144,6 +238,17 @@ Respond ONLY with valid JSON in this exact format:
         warnings: ['Could not parse structured response']
       };
     }
+
+    // Log verification result
+    await supabase.rpc('log_action', {
+      p_actor_id: userId,
+      p_action: 'verify_payment_result',
+      p_payload: { 
+        confidence: result.confidence,
+        is_vodafone_cash: result.is_vodafone_cash,
+        ip: clientIp
+      }
+    });
 
     console.log('Verification result:', JSON.stringify(result));
 

@@ -197,6 +197,67 @@ export type Database = {
           },
         ]
       }
+      driver_documents: {
+        Row: {
+          checksum: string | null
+          created_at: string
+          driver_id: string
+          file_key: string
+          id: string
+          mime_type: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          uploaded_by: string
+        }
+        Insert: {
+          checksum?: string | null
+          created_at?: string
+          driver_id: string
+          file_key: string
+          id?: string
+          mime_type?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          uploaded_by: string
+        }
+        Update: {
+          checksum?: string | null
+          created_at?: string
+          driver_id?: string
+          file_key?: string
+          id?: string
+          mime_type?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_documents_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           avg_rating: number | null
@@ -234,6 +295,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      failed_login_attempts: {
+        Row: {
+          attempted_at: string
+          email: string
+          id: string
+          ip_address: string | null
+        }
+        Insert: {
+          attempted_at?: string
+          email: string
+          id?: string
+          ip_address?: string | null
+        }
+        Update: {
+          attempted_at?: string
+          email?: string
+          id?: string
+          ip_address?: string | null
+        }
+        Relationships: []
       }
       payments: {
         Row: {
@@ -316,6 +398,30 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          endpoint: string
+          id: string
+          request_count: number
+          subject: string
+          window_start: string
+        }
+        Insert: {
+          endpoint: string
+          id?: string
+          request_count?: number
+          subject: string
+          window_start?: string
+        }
+        Update: {
+          endpoint?: string
+          id?: string
+          request_count?: number
+          subject?: string
+          window_start?: string
         }
         Relationships: []
       }
@@ -478,6 +584,47 @@ export type Database = {
         }
         Relationships: []
       }
+      upload_tokens: {
+        Row: {
+          bucket: string
+          consumed: boolean | null
+          created_at: string
+          expires_at: string
+          file_key: string
+          id: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          bucket: string
+          consumed?: boolean | null
+          created_at?: string
+          expires_at: string
+          file_key: string
+          id?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          bucket?: string
+          consumed?: boolean | null
+          created_at?: string
+          expires_at?: string
+          file_key?: string
+          id?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -572,10 +719,38 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_rate_limit: {
+        Args: {
+          p_endpoint: string
+          p_limit?: number
+          p_subject: string
+          p_window_seconds?: number
+        }
+        Returns: boolean
+      }
+      cleanup_expired_tokens: { Args: never; Returns: number }
       cleanup_expired_votes: { Args: never; Returns: number }
       cleanup_temp_registrations: { Args: never; Returns: number }
+      clear_failed_logins: { Args: { p_email: string }; Returns: undefined }
+      consume_upload_token: {
+        Args: { p_token_hash: string; p_user_id: string }
+        Returns: {
+          bucket: string
+          file_key: string
+          valid: boolean
+        }[]
+      }
       create_anonymous_rating: {
         Args: { p_anonymous?: boolean; p_driver_id: string; p_rating: number }
+        Returns: string
+      }
+      create_upload_token: {
+        Args: {
+          p_bucket: string
+          p_expires_minutes?: number
+          p_file_key: string
+          p_user_id: string
+        }
         Returns: string
       }
       detect_anomalies: { Args: never; Returns: number }
@@ -625,12 +800,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_account_locked: {
+        Args: {
+          p_email: string
+          p_max_attempts?: number
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_driver: { Args: { user_id: string }; Returns: boolean }
       is_owner: { Args: { user_id: string }; Returns: boolean }
       log_action: {
         Args: { p_action: string; p_actor_id: string; p_payload?: Json }
         Returns: string
+      }
+      log_document_access: {
+        Args: { p_action?: string; p_actor_id: string; p_doc_id: string }
+        Returns: undefined
       }
       mark_passenger_arrival: {
         Args: { p_arrived: boolean; p_reservation_id: string }
@@ -647,6 +834,10 @@ export type Database = {
           passenger_name: string
           status: Database["public"]["Enums"]["reservation_status"]
         }[]
+      }
+      record_failed_login: {
+        Args: { p_email: string; p_ip_address?: string }
+        Returns: undefined
       }
       refresh_rating_aggregates: { Args: never; Returns: undefined }
       reserve_seat: {
